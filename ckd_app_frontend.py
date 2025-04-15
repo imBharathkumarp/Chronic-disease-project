@@ -338,7 +338,7 @@ def show_auth_forms():
 # Main app functionality
 @st.cache_data
 def load_data():
-    url = "https://raw.githubusercontent.com/patilgirish815/Kidney_Cancer_Prediction_Using_Machine_Learning/main/dataset/kidney_disease.csv"
+    # url = "https://raw.githubusercontent.com/patilgirish815/Kidney_Cancer_Prediction_Using_Machine_Learning/main/dataset/kidney_disease.csv"
     df = pd.read_csv(url)
     df.columns = df.columns.str.strip()
     df = df.drop(columns=["id"], errors='ignore')
