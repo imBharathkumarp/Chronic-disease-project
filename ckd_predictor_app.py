@@ -241,8 +241,8 @@ selected_features = X.columns  # All features
 # ---------------------- Patient Data Entry ----------------------
 st.subheader("Enter Patient Data")
 with st.form("predict_form"):
-    patient_name = st.text_input("Patient Name (required)")
-    patient_age = st.number_input("Patient Age (required)", min_value=0, max_value=120, value=0, step=1)
+    patient_name = st.text_input("Patient Name")
+    patient_age = st.number_input("Patient Age", min_value=0, max_value=120, value=0, step=1)
     cols = st.columns(3)
     input_data = {}
     for i, feature in enumerate(selected_features):
