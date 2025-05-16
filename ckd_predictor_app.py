@@ -29,6 +29,46 @@ def init_db():
     conn.close()
 init_db()
 
+# ---------------------- Patient Records Table ----------------------
+def init_patient_db():
+    conn = sqlite3.connect('ckd_users.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS patient_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            patient_name TEXT,
+            patient_age INTEGER,
+            input_data TEXT,
+            best_model TEXT,
+            prediction INTEGER,
+            probability REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+init_patient_db()
+
+# ---------------------- Save Patient Record ----------------------
+def save_patient_record(username, patient_name, patient_age, input_data, best_model, prediction, probability):
+    conn = sqlite3.connect('ckd_users.db')
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO patient_records (username, patient_name, patient_age, input_data, best_model, prediction, probability)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        username,
+        patient_name,
+        patient_age,
+        str(input_data),
+        best_model,
+        prediction,
+        probability
+    ))
+    conn.commit()
+    conn.close()
+
 # ---------------------- Password Hashing ----------------------
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -241,8 +281,8 @@ selected_features = X.columns  # All features
 # ---------------------- Patient Data Entry ----------------------
 st.subheader("Enter Patient Data")
 with st.form("predict_form"):
-    patient_name = st.text_input("Patient Name (required)")
-    patient_age = st.number_input("Patient Age (required)", min_value=0, max_value=120, value=0, step=1)
+    patient_name = st.text_input("Patient Name")
+    patient_age = st.number_input("Patient Age", min_value=0, max_value=120, value=0, step=1)
     cols = st.columns(3)
     input_data = {}
     for i, feature in enumerate(selected_features):
@@ -320,6 +360,16 @@ if submitted:
         st.info(f"Summary for {patient_name} (Age {patient_age}): "
                 f"{'CKD Detected' if best_pred == 1 else 'No CKD Detected'} "
                 f"with {best_model} (Confidence: {best_prob*100:.2f}%)")
+        # Save patient record to database
+        save_patient_record(
+            st.session_state.current_user['username'],
+            patient_name,
+            patient_age,
+            input_data,
+            best_model,
+            best_pred,
+            float(best_prob)
+        )
 
 # ---------------------- Model Comparison ----------------------
 st.subheader("Model Comparison on Test Data")
@@ -384,3 +434,11 @@ if st.checkbox("Show feature distributions"):
     ax.grid(False)
     st.pyplot(fig)
     plt.close(fig)
+
+# ---------------------- View Saved Patient Records ----------------------
+st.subheader("Saved Patient Records")
+if st.checkbox("Show saved patient records"):
+    conn = sqlite3.connect('ckd_users.db')
+    df_patients = pd.read_sql_query("SELECT * FROM patient_records", conn)
+    st.dataframe(df_patients)
+    conn.close()
