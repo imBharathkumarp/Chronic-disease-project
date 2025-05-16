@@ -6,3 +6,4 @@ xgboost==1.7.5
 matplotlib==3.7.2
 seaborn==0.12.2
 shap==0.42.1
+plotly==5.18.0
