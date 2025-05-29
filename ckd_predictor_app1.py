@@ -196,10 +196,10 @@ def load_data():
             df[col] = df[col].fillna(df[col].mode()[0])
         else:
             df[col] = df[col].fillna(df[col].median())
-    le = LabelEncoder()
-    for col in df.select_dtypes(include='object'):
-        df[col] = le.fit_transform(df[col].astype(str))
-    df['classification'] = df['classification'].replace({0: 0, 2: 1, 'ckd': 1, 'notckd': 0, 'yes': 1, 'no': 0})
+    # --- Clean classification column ---
+    df['classification'] = df['classification'].astype(str).str.strip().str.lower()
+    df['classification'] = df['classification'].replace({'ckd': 1, 'ckd\t': 1, 'notckd': 0, 'yes': 1, 'no': 0, '2': 1, '0': 0, 2: 1, 0: 0})
+    df['classification'] = df['classification'].astype(int)
     return df
 
 # ---------------------- Model Building ----------------------
@@ -213,17 +213,6 @@ def build_models(X_train, y_train):
     return models
 
 # ---------------------- Plotting Functions ----------------------
-def plot_confusion_matrix(cm, title):
-    if cm.shape == (2, 2):
-        fig = px.imshow(cm, labels=dict(x="Predicted", y="Actual", color="Count"),
-                        x=['No CKD', 'CKD'], y=['No CKD', 'CKD'],
-                        color_continuous_scale='viridis', text_auto=True)
-        fig.update_layout(title_text=title)
-        return fig
-    else:
-        st.error(f"Unexpected confusion matrix shape: {cm.shape}. Cannot plot.")
-        return None
-
 def plot_accuracy_bar(metrics):
     fig = go.Figure()
     fig.add_trace(go.Bar(
@@ -241,6 +230,23 @@ def plot_accuracy_bar(metrics):
     )
     return fig
 
+def plot_confusion_matrix(cm, title):
+    # Always plot as heatmap with 'Blues' color scale
+    if cm.shape == (2, 2):
+        fig = px.imshow(
+            cm,
+            labels=dict(x="Predicted", y="Actual", color="Count"),
+            x=['No CKD', 'CKD'],
+            y=['No CKD', 'CKD'],
+            color_continuous_scale='Blues',
+            text_auto=True
+        )
+        fig.update_layout(title_text=title)
+        return fig
+    else:
+        st.warning(f"Confusion matrix shape is {cm.shape}. Not enough class variety to plot heatmap.")
+        return None
+
 # ---------------------- Main App Flow ----------------------
 show_auth_forms()
 st.title("Chronic Kidney Disease Predictor Pro")
@@ -255,10 +261,18 @@ if df is None:
 X = df.drop("classification", axis=1)
 y = df["classification"]
 
+# Prepare encoders for categorical columns
+cat_cols = [col for col in X.columns if df[col].dtype == 'object' or df[col].nunique() < 5]
+encoders = {}
+for col in cat_cols:
+    le = LabelEncoder()
+    le.fit(df[col].astype(str))
+    encoders[col] = le
+
 # Data scaling
 with st.spinner("Scaling data..."):
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    X_scaled = scaler.fit_transform(X.apply(lambda col: encoders[col.name].transform(col.astype(str)) if col.name in encoders else col))
 
 # Train-test split (fixed test size, e.g., 20%)
 with st.spinner("Splitting data..."):
@@ -290,13 +304,13 @@ with st.form("predict_form"):
             continue  # skip if already handled
         col = cols[i % 3]
         with col:
-            if df[feature].dtype == 'object' or df[feature].nunique() < 5:
-                options = df[feature].unique()
+            if feature in encoders:
+                options = list(encoders[feature].classes_)
                 default_index = 0
                 try:
                     default_value = df[feature].mode()[0]
                     if default_value in options:
-                        default_index = list(options).index(default_value)
+                        default_index = options.index(default_value)
                 except:
                     pass
                 input_data[feature] = st.selectbox(
@@ -326,8 +340,12 @@ if submitted:
         # Insert patient age into input_data if 'age' is a feature
         if 'age' in selected_features:
             input_data['age'] = patient_age
+        # Encode categorical inputs as in training
+        input_data_encoded = input_data.copy()
+        for feature in encoders:
+            input_data_encoded[feature] = encoders[feature].transform([input_data[feature]])[0]
         # Order input values to match model features
-        input_values = [input_data[feature] if feature != 'age' else patient_age for feature in selected_features]
+        input_values = [input_data_encoded[feature] if feature != 'age' else patient_age for feature in selected_features]
         user_input = np.array(input_values).reshape(1, -1)
         user_scaled = scaler.transform(user_input)
         results = {}
@@ -342,9 +360,9 @@ if submitted:
                 pred, prob = results[model_name]
                 st.markdown(f"**{model_name}**")
                 if pred == 1:
-                    st.markdown(f"Result: CKD Detected")
+                    st.success(f"🟢 Result: CKD Detected")
                 else:
-                    st.markdown(f"Result: No CKD Detected")
+                    st.info(f"🔵 Result: No CKD Detected")
                 st.markdown(f"Confidence: {prob*100:.2f}%")
                 st.markdown(f"Patient: {patient_name}, Age: {patient_age}")
                 st.markdown("Feature Importance (SHAP):")
@@ -357,9 +375,10 @@ if submitted:
         # Final summary for patient
         best_model = max(results.items(), key=lambda x: x[1][1])[0]
         best_pred, best_prob = results[best_model]
-        st.info(f"Summary for {patient_name} (Age {patient_age}): "
-                f"{'CKD Detected' if best_pred == 1 else 'No CKD Detected'} "
-                f"with {best_model} (Confidence: {best_prob*100:.2f}%)")
+        if best_pred == 1:
+            st.success(f"🟢 Summary for {patient_name} (Age {patient_age}): CKD Detected with {best_model} (Confidence: {best_prob*100:.2f}%)")
+        else:
+            st.info(f"🔵 Summary for {patient_name} (Age {patient_age}): No CKD Detected with {best_model} (Confidence: {best_prob*100:.2f}%)")
         # Save patient record to database
         save_patient_record(
             st.session_state.current_user['username'],
@@ -404,9 +423,9 @@ best_acc = df_metrics.loc[best_model_name, "Accuracy"]
 st.success(f"Best Model: {best_model_name} (Accuracy: {best_acc:.2%})")
 
 # Confusion Matrix
-st.write("Confusion Matrix")
-cm_rf = confusion_matrix(y_test, models["Random Forest"].predict(X_test))
-cm_xgb = confusion_matrix(y_test, models["XGBoost"].predict(X_test))
+st.write("Confusion Matrix (Heatmap: actual vs. predicted, color = count)")
+cm_rf = confusion_matrix(y_test, models["Random Forest"].predict(X_test), labels=[0, 1])
+cm_xgb = confusion_matrix(y_test, models["XGBoost"].predict(X_test), labels=[0, 1])
 col1, col2 = st.columns(2)
 with col1:
     st.write("Random Forest Confusion Matrix")
@@ -418,6 +437,8 @@ with col2:
     fig_cm_xgb = plot_confusion_matrix(cm_xgb, "XGBoost")
     if fig_cm_xgb:
         st.plotly_chart(fig_cm_xgb)
+
+st.caption("Confusion matrix is a heatmap: rows = actual class, columns = predicted class. Color intensity shows the number of samples.")
 
 # ---------------------- Data Exploration ----------------------
 st.subheader("Data Exploration")

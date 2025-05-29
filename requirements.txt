@@ -7,3 +7,5 @@ matplotlib==3.7.2
 seaborn==0.12.2
 shap==0.42.1
 plotly==5.18.0
+password-strength==0.0.3
+# sqlite3 is included with Python standard library
