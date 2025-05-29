@@ -1,6 +1,5 @@
 # CKD Predictor Pro
 
-![alt text](image.png)  
 Chronic Kidney Disease prediction system with explainable AI and secure user authentication.
 
 ## Features
@@ -13,15 +12,15 @@ Chronic Kidney Disease prediction system with explainable AI and secure user aut
 
 ### Prediction Engine
 - Dual-model approach (Random Forest + XGBoost)
-- SHAP value explanations for predictions
-- Confidence visualization
-- Feature importance analysis
+- SHAP value explanations for predictions (feature importance visualization)
+- Confidence visualization for each prediction
+- Feature importance analysis per patient
 
 ### Dashboard & Data Management
 - Interactive input forms for patient data
-- Real-time prediction results
+- Real-time prediction results for both models
 - Model performance metrics and comparison (accuracy, precision, recall, F1, AUC)
-- Confusion matrices for both models
+- Confusion matrix heatmaps for both models
 - Data exploration tools (raw data, feature distributions)
 - **Automatic storage of each patient’s input and prediction in a secure database**
 - **View all saved patient records directly in the app**
