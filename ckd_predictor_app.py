@@ -75,7 +75,7 @@ def hash_password(password):
 
 # ---------------------- App Configuration ----------------------
 st.set_page_config(
-    page_title="CKD Predictor Pro",
+    page_title="CKD Predictor",
     layout="wide",
     page_icon="🩺",
     menu_items={
@@ -130,7 +130,7 @@ def verify_user(email, password):
 
 def show_auth_forms():
     if not st.session_state.get("authenticated", False):
-        st.title("CKD Predictor Pro Login")
+        st.title("CKD Predictor Login")
         tabs = st.tabs(["Login", "Register"])
         with tabs[0]:
             with st.form("login_form"):
